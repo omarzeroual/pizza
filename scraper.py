@@ -118,7 +118,7 @@ def save_to_csv(restaurants, filname):
                 csvFile.write(f"{line}\n")
 
 def main():
-    """Main function to scrape multiple locations and save the data"""
+    """Main function to scrape multiple locations and save data"""
     # set target url and list of postal codes to scrape
     base_url = "https://www.just-eat.ch/lieferservice/essen/{}?serpRedirect=true&q=Pizza+Margherita"
     postal_codes = ["basel-4051", "bern-3011"]
