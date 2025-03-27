@@ -1,12 +1,13 @@
-import requests
+import requests # not used
 from bs4 import BeautifulSoup
 import pandas as pd
 from seleniumbase import Driver
-from selenium import webdriver
+from selenium import webdriver # not used
 import time
 import os
 
-class restaurant:
+class Restaurant: # class naming convention PascalCase
+    """Represents a restaurant and its attributes"""
     def __init__(self, restaurantName, restaurantLocation, restaurantRating, restaurantCuisine, restProdPrice):
         self.name = restaurantName
         self.location = restaurantLocation
@@ -21,7 +22,9 @@ class restaurant:
         """Creates for each product of restaurant a line of comma separated values (CSV)"""
         lines = []
         for product, price in self.productPrice.items():
-            lines.append(f"{self.name};{self.location};{self.rating};{self.cuisine};{product};{price}")
+            # Ensure to correctly format the product and price line
+            line = f"{self.name};{self.location};{self.rating};{self.cuisine};{product};{price}"
+            lines.append(line)
         return lines
 
 def getPage(url):
@@ -58,28 +61,38 @@ def getPage(url):
 
     return soup
 
-def createRestObject(restaurantList):
+def extract_restaurants(soup, location):
     """Creates Restaurant objects from restaurant list."""
-
-    # Initialize dictionary for info of products and prices
-    productPriceDict = {}
     # Initialize list of restaurant objects
     restaurantObjects = []
+    restaurant_items = soup.find_all("div", class_ = "restaurant-card-shell_card__IMerh")
+
+    # print only for debugging
+    # print(f"Found {len(restaurant_items)} restaurants in {location}")
+
+    if not restaurant_items:
+        print("No restaurants found! The structure might have changed.")
+        return []
 
     # Loop through all restaurants in soup list
-    for restaurantItem in restaurantList:
-
+    for restaurantItem in restaurant_items:
+        productPriceDict = {}
         # Get different data from restaurantItem
         restaurantName = textValidator(restaurantItem.find('div', class_='restaurant-card_restaurant-name__lEVVi'))
         productName = restaurantItem.find_all('div', class_='restaurant-nested-dishes_product-name__I4Cam')
         productPrice = restaurantItem.find_all("div", class_='restaurant-nested-dishes_product-price__R1kWT')
+
         for i in range(len(productName)):
             productPriceDict.update({textValidator(productName[i]) : textValidator(productPrice[i])})
+
         restaurantRating = textValidator(restaurantItem.find("div", class_="restaurant-ratings_rating__yW5tR"))
         restaurantCuisine = textValidator(restaurantItem.find("div", class_ = "restaurant-cuisine_cuisine__SQ_Dc"))
 
+        # Print only for debugging
+        # print(f"Scraped: {restaurantName}, Rating: {restaurantRating}, Cuisine: {restaurantCuisine}")
+
         # Create new restaurant object with data
-        restaurantObjects.append(restaurant(restaurantName, location.text, restaurantRating, restaurantCuisine, productPriceDict))
+        restaurantObjects.append(Restaurant(restaurantName, location, restaurantRating, restaurantCuisine, productPriceDict))
 
         # Clear dictionary with products and prices for new restaurant
         productPriceDict = {}
@@ -88,39 +101,46 @@ def createRestObject(restaurantList):
 
 def textValidator(htmlBlock):
     """Method to check if soup object/html code is not empty. Returns "NA" if it is else the text."""
+    return htmlBlock.text if htmlBlock else "NA"
 
-    if htmlBlock != None:
-        return htmlBlock.text
-    else:
-        return "NA"
 
-# Initialize list with all restaurant objects
-restaurantExtList = []
+def save_to_csv(restaurants, filname):
+    # Check if CSV already exists
+    if os.path.exists("data/pizza.csv"):
+        os.remove("data/pizza.csv")
 
-# TODO: Method for constructing URLs
+    # create new CSV
+    with open("data/pizza.csv", "w") as csvFile:
+        csvFile.write("restaurant;location;rating (number of ratings);cuisine;product;price\n")
+        for restaurantObject in restaurants:
+            lines = restaurantObject.csvCreator()
+            for line in lines:
+                csvFile.write(f"{line}\n")
 
-# set target url
-url = "https://www.just-eat.ch/lieferservice/essen/zuerich-8001?serpRedirect=true&q=Pizza+Margherita"
+def main():
+    """Main function to scrape multiple locations and save data"""
+    # set target url and list of postal codes to scrape
+    base_url = "https://www.just-eat.ch/lieferservice/essen/{}?serpRedirect=true&q=Pizza+Margherita"
+    postal_codes = ["basel-4051", "bern-3011"]
 
-# get soup of url
-soup = getPage(url)
+    all_restaurants = []
 
-# get location of current soup
-location = soup.find("span", class_ ="ygmw2")
-# get the list of the restaurants in the soup
-restaurantList = soup.find_all('div', class_='restaurant-card-shell_card__IMerh')
+    # loop through the different urls
+    for postal_code in postal_codes:
+        # format URL with postal code and search term variations
+        url = base_url.format(postal_code)
+        print(f"Scraping: {url}")  # only as check
 
-# create restaurant objects based on the soup list and add them to a global list of all restaurants
-restaurantExtList.extend(createRestObject(restaurantList))
+        # get soup of url
+        soup = getPage(url)
+        # get location of current soup
+        location_elem = soup.find("span", class_="ygmw2")
+        location = textValidator(location_elem)
 
-# Check if CSV already exists
-if os.path.exists("data/pizza.csv"):
-  os.remove("data/pizza.csv")
+        all_restaurants.extend(extract_restaurants(soup, location))
 
-# create new CSV
-with open("data/pizza.csv", "w") as csvFile:
-    csvFile.write("restaurant;location;rating (number of ratings);cuisine;product;price\n")
-    for restaurantObject in restaurantExtList:
-      lines = restaurantObject.csvCreator()
-      for line in lines:
-         csvFile.write(f"{line}\n")
+    save_to_csv(all_restaurants, "data/pizza.csv")
+    print("Scraping complete") # check
+
+if __name__ == "__main__":
+    main()
