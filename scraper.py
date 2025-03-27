@@ -1,29 +1,37 @@
-import requests # not used
+"""
+Module Name: scraper.py
+Description: This modules scrapes product information from a online delivery service. The data is output as a csv file.
+Author:
+Date: 2025-03-27
+Version: 0.1
+"""
+
 from bs4 import BeautifulSoup
-import pandas as pd
 from seleniumbase import Driver
-from selenium import webdriver # not used
 import time
 import os
 
 class Restaurant: # class naming convention PascalCase
     """Represents a restaurant and its attributes"""
-    def __init__(self, restaurantName, restaurantLocation, restaurantRating, restaurantCuisine, restProdPrice):
+    def __init__(self, restaurantName, restaurantLocation, restaurantRating, restaurantCuisine, restProdPrice, restaurantDelTime, restaurantDelCost, restaurantMinOrd):
         self.name = restaurantName
         self.location = restaurantLocation
         self.rating = restaurantRating
         self.cuisine = restaurantCuisine
         self.productPrice = restProdPrice
+        self.delTime = restaurantDelTime
+        self.delCost = restaurantDelCost
+        self.minOrd = restaurantMinOrd
 
     def __str__(self):
-        return f"{self.name}, {self.location}, {self.rating}, {self.cuisine}, {self.productPrice}"
+        return f"{self.name}, {self.location}, {self.rating}, {self.cuisine}, {self.productPrice}, {self.delTime}, {self.delCost}, {self.minOrd}"
 
     def csvCreator(self):
         """Creates for each product of restaurant a line of comma separated values (CSV)"""
         lines = []
         for product, price in self.productPrice.items():
             # Ensure to correctly format the product and price line
-            line = f"{self.name};{self.location};{self.rating};{self.cuisine};{product};{price}"
+            line = f"{self.name};{self.location};{self.rating};{self.cuisine};{product};{price};{self.delTime};{self.delCost};{self.minOrd}"
             lines.append(line)
         return lines
 
@@ -41,8 +49,7 @@ def getPage(url):
     # sleep for visibility of change
     time.sleep(2);
 
-    # TODO: Find a better method for scrolling? Identifying the bottom?
-    # scroll to the bottom
+    # Slowly scroll to the bottom to uncover new restaurants
     stopScrolling = 0
     while True:
         stopScrolling += 1
@@ -87,12 +94,16 @@ def extract_restaurants(soup, location):
 
         restaurantRating = textValidator(restaurantItem.find("div", class_="restaurant-ratings_rating__yW5tR"))
         restaurantCuisine = textValidator(restaurantItem.find("div", class_ = "restaurant-cuisine_cuisine__SQ_Dc"))
+        restaurantDelTime = textValidator(restaurantItem.find("div", attrs={"data-qa": "restaurant-eta"}))
+        restaurantDelCost = textValidator(restaurantItem.find("div", attrs={"data-qa": "restaurant-delivery-fee"}))
+        restaurantMinOrd = textValidator(restaurantItem.find("div", attrs={"data-qa":"restaurant-mov"}))
+
 
         # Print only for debugging
         # print(f"Scraped: {restaurantName}, Rating: {restaurantRating}, Cuisine: {restaurantCuisine}")
 
         # Create new restaurant object with data
-        restaurantObjects.append(Restaurant(restaurantName, location, restaurantRating, restaurantCuisine, productPriceDict))
+        restaurantObjects.append(Restaurant(restaurantName, location, restaurantRating, restaurantCuisine, productPriceDict, restaurantDelTime, restaurantDelCost, restaurantMinOrd))
 
         # Clear dictionary with products and prices for new restaurant
         productPriceDict = {}
@@ -111,7 +122,7 @@ def save_to_csv(restaurants, filname):
 
     # create new CSV
     with open("data/pizza.csv", "w") as csvFile:
-        csvFile.write("restaurant;location;rating (number of ratings);cuisine;product;price\n")
+        csvFile.write("restaurant;location;rating (number of ratings);cuisine;product;price;delivery time;delivery fee;minimum order value\n")
         for restaurantObject in restaurants:
             lines = restaurantObject.csvCreator()
             for line in lines:
@@ -121,7 +132,7 @@ def main():
     """Main function to scrape multiple locations and save data"""
     # set target url and list of postal codes to scrape
     base_url = "https://www.just-eat.ch/lieferservice/essen/{}?serpRedirect=true&q=Pizza+Margherita"
-    postal_codes = ["basel-4051", "bern-3011"]
+    postal_codes = ["zuerich-8001", "genf-1204", "basel-4051", "lausanne-1003", "bern-3011", "winterthur-8400", "luzern-6003", "sankt-gallen-9000", "lugano-6900", "biel-2502"]
 
     all_restaurants = []
 
