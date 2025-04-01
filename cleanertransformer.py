@@ -221,6 +221,25 @@ for i, col in enumerate(log_transform_cols):
 
 plt.tight_layout()
 plt.show()
+
+# dot plot
+# variables to plot
+variables = ['price_chf', 'delivery_fee_chf', 'min_ord_val_chf', 'min_del_time', 'max_del_time']
+
+# figure size
+plt.figure(figsize=(10, len(variables) * 2))
+
+# create dot plots for each variable
+for i, var in enumerate(variables, 1):
+    plt.subplot(len(variables), 1, i)  # Create a subplot for each variable
+    sns.stripplot(x=df[var], jitter=True, alpha=0.6)  # Dot plot (strip plot)
+    plt.title(f"Dot Plot of {var}")
+    plt.xlabel(var)
+
+# Adjust layout for better readability
+plt.tight_layout()
+plt.show()
+
 ########################################################################################################################
 # Format your dataset suitable for your task (combine, merge, resample, …)
 ########################################################################################################################
