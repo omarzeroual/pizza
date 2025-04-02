@@ -63,7 +63,7 @@ def process_data(data):
 
 def save_data(df):
     """Save Data Frame to CSV and JSON """
-    df.to_csv("data/median_wages_2022.csv", index=False)
+    df.to_csv("data/median_wages_2022.csv", index=False, sep = ";")
     df.to_json("data/median_wages_2022.json", orient="records", indent=4)
     print("Data saved successfully.")
 

@@ -10,6 +10,7 @@ import numpy as np
 import re
 import matplotlib.pyplot as plt
 import seaborn as sns
+from docx import Document
 
 def extract_rating_info(rating_str):
     """Function to extract rating and number of ratings using regex"""
@@ -127,17 +128,38 @@ print("*"*60+"\n")
 ########################################################################################################################
 
 # Summary Statistics
-pd.set_option('display.max_rows', 100) # show all 7 rows
-pd.set_option('display.max_columns', 100) # show all 8 columns
+pd.set_option('display.max_rows', 10) # show all rows
+pd.set_option('display.max_columns', 10) # show all columns
 
-print("Summary Statistics:\n")
 summary_statistics = df.describe().T
 # add median to summary statistics
 summary_statistics["median"] = df.median(numeric_only=True)
 # reorder columns
 column_order = ["count", "mean", "median", "std", "min", "25%", "50%", "75%", "max"]
 summary_statistics = summary_statistics[column_order]
-print(summary_statistics)
+# exclude first variable "plz" and round digits up to 2 decimal places
+summary_statistics = summary_statistics.iloc[1: ].round(2)
+
+print(f"Summary Statistics: \n {summary_statistics} \n")
+print("*"*60+"\n")
+
+# Create a new Document
+#doc = Document()
+# Add a title to the document
+#doc.add_heading('Summary Statistics', 0)
+# Add the summary statistics table to the Word document
+#table = doc.add_table(rows=1, cols=len(summary_statistics.columns))
+# Add the column headers
+#hdr_cells = table.rows[0].cells
+#for i, column in enumerate(summary_statistics.columns):
+    #hdr_cells[i].text = column
+# Add the summary statistics data
+#for index, row in summary_statistics.iterrows():
+    #row_cells = table.add_row().cells
+    #for i, value in enumerate(row):
+        #row_cells[i].text = str(value)
+# Save the document
+#doc.save('summary_statistics.docx')
 
 """ potential outliers in price_chf min. and max. price 4.5 to 65.0 seem unlikely.
 max for min_ord_val_chf seems very high with 150 CHF.
@@ -147,95 +169,66 @@ other ranges look reasonable """
 ########################################################################################################################
 # Identify outliers, treat them reasonably
 ########################################################################################################################
+# list of numeric variables for outlier analysis
+variables = ['rating', 'num_ratings', 'price_chf', 'delivery_fee_chf', 'min_ord_val_chf',
+             'min_del_time', 'max_del_time']
 
-# Plot histograms to visually check distribution
-# List of the variables to plot
-variables = ['rating', 'num_ratings', 'price_chf', 'delivery_fee_chf', 'min_ord_val_chf', 'min_del_time', 'max_del_time']
-
-# Set up the matplotlib figure with subplots
+# Visualize distribution with histograms
+# Set up figure with subplots
 plt.figure(figsize=(16, 12))
-
 # Loop through the variables to create individual histograms
 for i, var in enumerate(variables, 1):
-    plt.subplot(3, 3, i)  # Arrange subplots in a 3x3 grid (adjust as necessary)
-    sns.histplot(df[var], kde=True, bins=20)  # kde=True adds a density curve
+    plt.subplot(3, 3, i)  # arrange subplots in a 3x3 grid
+    sns.histplot(df[var], kde=True, bins=20)  # kde=True adds density curve
     plt.title(f'Histogram of {var}')
     plt.xlabel(var)
     plt.ylabel('Frequency')
-
 # Adjust layout to prevent overlap
 plt.tight_layout()
-
 # Show the plot
 plt.show()
 
-""" no normal distribution for any variable """
-
-# Set up the figure for the box plots with adjusted figure size
+# Visualize outliers with boxplots
+# Set up the figure with subplots
 plt.figure(figsize=(8, 12))
-
-# Plot boxplots for each variable
+# Loop through the variables to create individual boxplots
 for i, variable in enumerate(variables, 1):
-    plt.subplot(4, 2, i)  # Arrange subplots in a 7x1 grid
-    sns.boxplot(y=df[variable])  # Specify 'y' for vertical box plot (variable is plotted on y-axis)
+    plt.subplot(4, 2, i)  # arrange subplots in a 7x1 grid
+    sns.boxplot(y=df[variable])  # specify 'y' for vertical box plot
     plt.title(f'Boxplot of {variable}')
-
-    # Label x-axis with the variable name for clarity
-    plt.xlabel(variable)
-
-# Adjust layout to make figures bigger
+    plt.xlabel(variable) # label x-axis
+# Adjust layout to prevent overlap
 plt.tight_layout()
-plt.subplots_adjust(hspace=0.5) # Increase vertical space between plots
-
+# Increase vertical space between plots
+plt.subplots_adjust(hspace=0.5)
 # Show plot
 plt.show()
 
-# percentile method - define limits
-lower_bound = 0.025
-upper_bound = 0.975
-
-# compute lower and upper limit for outliers
-outlier_bounds = df[variables].quantile([lower_bound, upper_bound])
-
-# Iterate through each column and display outliers
+limits = df[variables].quantile([0.025, 0.975])
+# dictionnary to store outliers count for each variable
+outlier_count = {}
+# list to store end result
+outlier_info = []
+# loop through the variables to count outliers and store info
 for col in variables:
-    try:
-        lower_bound = outlier_bounds.loc[lower_bound, col]
-        upper_bound = outlier_bounds.loc[upper_bound, col]
-    except KeyError:
-        lower_bound = outlier_bounds.iloc[0][col]  # Fallback if KeyError
-        upper_bound = outlier_bounds.iloc[1][col]
-
+    lower_bound = limits.loc[0.025, col]
+    upper_bound = limits.loc[0.975, col]
+    # count number of outliers outside the 2.5% to 97.5% range
     outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
-
-    print(f"\n Outliers in '{col}':")
-    print(f"Lower Bound: {lower_bound}, Upper Bound: {upper_bound}")
-    print(outliers[[col]])  # Show only the outlier column for clarity
-
-# log transformation
-log_transform_cols = ['price_chf', 'delivery_fee_chf', 'min_ord_val_chf', 'min_del_time', 'max_del_time']
-
-# Apply log transformation
-for col in log_transform_cols:
-    df[f'log_{col}'] = np.log1p(df[col])  # log1p(x) = log(x + 1)
-
-# Display transformed columns
-df[[f'log_{col}' for col in log_transform_cols]].head()
-
-# plot histograms
-fig, axes = plt.subplots(nrows=2, ncols=len(log_transform_cols), figsize=(15, 6))
-
-for i, col in enumerate(log_transform_cols):
-    # Before transformation
-    sns.histplot(df[col], bins=30, kde=True, ax=axes[0, i])
-    axes[0, i].set_title(f'Original {col}')
-
-    # After transformation
-    sns.histplot(df[f'log_{col}'], bins=30, kde=True, ax=axes[1, i])
-    axes[1, i].set_title(f'Log Transformed {col}')
-
-plt.tight_layout()
-plt.show()
+    outlier_count[col] = outliers.shape[0]  # store outlier count
+    # add to result list
+    outlier_info.append({
+        'Variable': col,
+        'Lower Bound (2.5%)': lower_bound,
+        'Upper Bound (97.5%)': upper_bound,
+        'Outlier Count': outlier_count[col]
+    })
+# convert the list outlier_info into a DataFrame
+outlier_info_df = pd.DataFrame(outlier_info)
+# display the data frame with the limits and outlier counts
+print("Outlier Info:")
+print(outlier_info_df.to_string(index=False))
+print("*"*60+"\n")
 
 # dot plot
 # variables to plot
@@ -256,9 +249,8 @@ plt.tight_layout()
 plt.show()
 
 ### Remove outliers in price
-
-prc_lwr_bnd = outlier_bounds.loc[0.025 , "price_chf"]
-prc_upr_bnd = outlier_bounds.loc[0.975 , "price_chf"]
+prc_lwr_bnd = limits.loc[0.025, "price_chf"]
+prc_upr_bnd = limits.loc[0.975, "price_chf"]
 
 # Remove outliers from price column
 df = df[(df["price_chf"] >= prc_lwr_bnd) & (df["price_chf"] <= prc_upr_bnd)]
@@ -269,15 +261,50 @@ plt.xlabel("price_chf")
 plt.ylabel('Frequency')
 plt.show()
 
-print(df.describe())
+summary_statistics_after = df.describe().T
+# add median to summary statistics
+summary_statistics_after["median"] = df.median(numeric_only=True)
+# reorder columns
+column_order = ["count", "mean", "median", "std", "min", "25%", "50%", "75%", "max"]
+summary_statistics_after = summary_statistics_after[column_order]
+# exclude first variable "plz" and round digits up to 2 decimal places
+summary_statistics = summary_statistics_after.iloc[1: ].round(2)
+
+print(f"Summary Statistics after Outlier Elimination: \n {summary_statistics} \n")
+print("*"*60+"\n")
 ########################################################################################################################
 # Format your dataset suitable for your task (combine, merge, resample, …)
 ########################################################################################################################
+
+# log transformation for price_chf
+df['price_chf'] = np.log1p(df['price_chf'])
+
+# plot histogram log_price_chf
+plt.figure(figsize=(10, 6))
+sns.histplot(df['price_chf'], kde=True, bins=20)
+plt.title("Log transformed Histogram of price_chf")
+plt.xlabel("price_chf")
+plt.ylabel('Frequency')
+plt.show()
+
+# transform del delivery_fee_chf int categorical variable with two levels
+df['delivery_fee_chf_cat'] = np.where(df['delivery_fee_chf'] == 0, 'No Fee', 'Fee')
+
+# Verify transformation
+print("Sample transformed data:")
+print(df[['price_chf', 'delivery_fee_chf', 'delivery_fee_chf_cat']].head())
+print("*"*60+"\n")
+
+# save log transformed df
+df.to_csv("data/pizza_transformed.csv", index = False, sep=";")
+print("Log transformed data frame is saved as a csv file.\n")
+print("*"*60+"\n")
 
 ########################################################################################################################
 # Enrich your dataset with at least one column of helpful additional information
 ########################################################################################################################
 
+# Add geographical information
 # Read data set with geographical information for each city/town in Switzerland
 df_coordinates = pd.read_csv("data/AMTOVZ_CSV_WGS84.csv", delimiter = ";", header = 0)
 
@@ -297,3 +324,56 @@ merged_df = merged_df.rename(columns={"E": "city_E", "N": "city_N"})
 merged_df.to_csv("data/pizza_enriched.csv", index = False, sep=";")
 print("Enriched data frame is saved as a csv file.\n")
 print("*"*60+"\n")
+
+# Merge with Wages
+# Load the wage data
+wage_df = pd.read_csv("data/median_wages_2022.csv", delimiter = ";", header = 0)
+
+# Mapping for the region to city
+region_to_city_mapping = {
+    "Région lémanique": ["Genf", "Lausanne"],
+    "Espace Mittelland": ["Bern", "Biel"],
+    "Nordwestschweiz": ["Basel"],
+    "Zürich": ["Zürich", "Winterthur"],
+    "Ostschweiz": ["St. Gallen"],
+    "Zentralschweiz": ["Luzern"],
+    "Ticino": ["Lugano"]
+}
+
+# convert mapping to data frame
+region_cities_df = pd.DataFrame(
+    [(region, city) for region, cities in region_to_city_mapping.items() for city in cities],
+    columns=["region", "city"]
+)
+
+# standardize region column
+region_cities_df['region'] = region_cities_df['region'].str.strip().str.lower()
+wage_df['Region'] = wage_df['Region'].str.strip().str.lower()
+
+# merge data frames onto 'region' column
+wages_cities_df = pd.merge(region_cities_df, wage_df, left_on='region', right_on='Region', how='left')
+
+# drop redundant 'Region' and 'Year' columns
+wages_cities_df = wages_cities_df.drop(columns=['Region', 'Year'])
+
+# save wages_city data frame to csv
+wages_cities_df.to_csv("data/wage_cities.csv", index = False, sep=";")
+print("Wage_Cities data frame is saved as a csv file.\n")
+print("*"*60+"\n")
+
+# Load enriched data
+enriched_df = pd.read_csv("data/pizza_enriched.csv", delimiter = ";", header = 0)
+
+# merge wages_cities_df with pizza_enriched
+final_df = pd.merge(enriched_df, wages_cities_df, on = 'city', how = 'left')
+
+# drop redundant city column
+final_df = final_df.drop(columns=['city'])
+
+final_df.to_csv("data/pizza_final.csv", index = False, sep=";")
+print("Final data frame is saved as a csv file.\n")
+print("*"*60+"\n")
+
+
+
+
