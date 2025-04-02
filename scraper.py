@@ -49,14 +49,15 @@ def getPage(url):
     # sleep for visibility of change
     time.sleep(2);
 
-    # Slowly scroll to the bottom to uncover new restaurants
-    stopScrolling = 0
+    # Scroll to the bottom to uncover new restaurants
+    last_height = driver.execute_script("return document.body.scrollHeight")
     while True:
-        stopScrolling += 1
-        driver.execute_script( "window.scrollBy(0, 500)")
-        time.sleep(0.5)
-        if stopScrolling > 120:
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == last_height:
             break
+        last_height = new_height
 
     time.sleep(3);
 
