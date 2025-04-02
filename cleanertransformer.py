@@ -367,9 +367,7 @@ enriched_df = pd.read_csv("data/pizza_enriched.csv", delimiter = ";", header = 0
 # merge wages_cities_df with pizza_enriched
 final_df = pd.merge(enriched_df, wages_cities_df, on = 'city', how = 'left')
 
-# drop redundant city column
-final_df = final_df.drop(columns=['city'])
-
+# save final df to csv
 final_df.to_csv("data/pizza_final.csv", index = False, sep=";")
 print("Final data frame is saved as a csv file.\n")
 print("*"*60+"\n")
