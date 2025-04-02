@@ -3,7 +3,7 @@ Module Name: cleanertransformer.py
 Description: This modules cleans the data of a provided csv file and does certain transformations.
 Author:
 Date: 2025-04-01
-Version: 0.2
+Version: 0.3
 """
 import pandas as pd
 import numpy as np
@@ -54,20 +54,25 @@ def extract_del_time(del_time_str):
             # in case of only a single delivery time (e.g. "20")
             return float(del_time_str), float(del_time_str)
     return 0, 0
+
 ########################################################################################################################
 # Load data
 ########################################################################################################################
 df = pd.read_csv("data/pizza.csv", delimiter = ";", header = 0)
-print("\nDataframe sucessfully loaded.\n")
+print("*"*60+"\n")
+print("Dataframe sucessfully loaded.\n")
+print("*"*60+"\n")
 
 # Get shape of data frame
 nrows = df.shape[0]
 ncols = df.shape[1]
 
 print(f"There are {nrows} rows and {ncols} columns in the dataframe.\n")
+print("*"*60+"\n")
 
+print("Structure of the data frame before cleaning and transforming:\n")
 print(df.info())
-print("\n")
+print("*"*60+"\n")
 
 ########################################################################################################################
 # Check for gaps / missing data
@@ -86,6 +91,8 @@ df.loc[:, columns_to_fill] = df.loc[:, columns_to_fill].fillna(np.nan)
 
 # Split the location into new columns for city and postcode
 df[["plz", "city"]] = df["location"].str.split(" ", n = 1, expand=True)
+# Convert plz to integer
+df['plz'] = df['plz'].astype(int)
 
 # Split the values in the 'rating (number of ratings)' column with function and create new columns
 df[['rating', 'num_ratings']] = df['rating (number of ratings)'].apply(lambda x: pd.Series(extract_rating_info(x)))
@@ -103,10 +110,18 @@ df["min_ord_val_chf"] = df["minimum order value"].apply(lambda x: pd.Series(extr
 # Split the values in the "delivery time" column with function and create new columns
 df[["min_del_time", "max_del_time"]] = df["delivery time"].apply(lambda x: pd.Series(extract_del_time(x)))
 
+# Drop unnecessary columns
+df.drop(columns=["location", "rating (number of ratings)" ,"price", "delivery time", "delivery fee", "minimum order value"], inplace=True)
+
+print("Structure of the data frame after cleaning and transforming:\n")
 print(df.info())
+print("*"*60+"\n")
 
 # save cleaned df to csv
 df.to_csv("data/pizza_cleaned.csv", index = False, sep=";")
+print("Cleaned data frame is saved as a csv file.\n")
+print("*"*60+"\n")
+
 ########################################################################################################################
 # Check if values lie in the expected range
 ########################################################################################################################
@@ -240,6 +255,21 @@ for i, var in enumerate(variables, 1):
 plt.tight_layout()
 plt.show()
 
+### Remove outliers in price
+
+prc_lwr_bnd = outlier_bounds.loc[0.025 , "price_chf"]
+prc_upr_bnd = outlier_bounds.loc[0.975 , "price_chf"]
+
+# Remove outliers from price column
+df = df[(df["price_chf"] >= prc_lwr_bnd) & (df["price_chf"] <= prc_upr_bnd)]
+
+sns.histplot(df["price_chf"], kde=True, bins=20)  # kde=True adds a density curve
+plt.title(f'Histogram of price_chf')
+plt.xlabel("price_chf")
+plt.ylabel('Frequency')
+plt.show()
+
+print(df.describe())
 ########################################################################################################################
 # Format your dataset suitable for your task (combine, merge, resample, …)
 ########################################################################################################################
@@ -247,3 +277,23 @@ plt.show()
 ########################################################################################################################
 # Enrich your dataset with at least one column of helpful additional information
 ########################################################################################################################
+
+# Read data set with geographical information for each city/town in Switzerland
+df_coordinates = pd.read_csv("data/AMTOVZ_CSV_WGS84.csv", delimiter = ";", header = 0)
+
+# Filter for necessary columns
+df_coord_slct = df_coordinates[["PLZ", "E", "N"]]
+
+# Merge data frames on plz column
+merged_df = pd.merge(df, df_coord_slct, left_on="plz", right_on="PLZ", how='inner')
+
+# Drop the redundant 'PLZ' column from merge
+merged_df = merged_df.drop(columns=['PLZ'])
+
+# Rename new columns for clarity
+merged_df = merged_df.rename(columns={"E": "city_E", "N": "city_N"})
+
+# save enriched df to csv
+merged_df.to_csv("data/pizza_enriched.csv", index = False, sep=";")
+print("Enriched data frame is saved as a csv file.\n")
+print("*"*60+"\n")
