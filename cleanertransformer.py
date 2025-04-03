@@ -10,7 +10,6 @@ import numpy as np
 import re
 import matplotlib.pyplot as plt
 import seaborn as sns
-from docx import Document
 
 def extract_rating_info(rating_str):
     """Function to extract rating and number of ratings using regex"""
@@ -143,29 +142,6 @@ summary_statistics = summary_statistics.iloc[1: ].round(2)
 print(f"Summary Statistics: \n {summary_statistics} \n")
 print("*"*60+"\n")
 
-# Create a new Document
-#doc = Document()
-# Add a title to the document
-#doc.add_heading('Summary Statistics', 0)
-# Add the summary statistics table to the Word document
-#table = doc.add_table(rows=1, cols=len(summary_statistics.columns))
-# Add the column headers
-#hdr_cells = table.rows[0].cells
-#for i, column in enumerate(summary_statistics.columns):
-    #hdr_cells[i].text = column
-# Add the summary statistics data
-#for index, row in summary_statistics.iterrows():
-    #row_cells = table.add_row().cells
-    #for i, value in enumerate(row):
-        #row_cells[i].text = str(value)
-# Save the document
-#doc.save('summary_statistics.docx')
-
-""" potential outliers in price_chf min. and max. price 4.5 to 65.0 seem unlikely.
-max for min_ord_val_chf seems very high with 150 CHF.
-big range for num_ratings is plausible -> might reflect popularity of restaurant.
-other ranges look reasonable """
-
 ########################################################################################################################
 # Identify outliers, treat them reasonably
 ########################################################################################################################
@@ -276,26 +252,15 @@ print("*"*60+"\n")
 # Format your dataset suitable for your task (combine, merge, resample, …)
 ########################################################################################################################
 
-# log transformation for price_chf
-df['price_chf'] = np.log1p(df['price_chf'])
-
-# plot histogram log_price_chf
-plt.figure(figsize=(10, 6))
-sns.histplot(df['price_chf'], kde=True, bins=20)
-plt.title("Log transformed Histogram of price_chf")
-plt.xlabel("price_chf")
-plt.ylabel('Frequency')
-plt.show()
-
 # transform del delivery_fee_chf int categorical variable with two levels
-df['delivery_fee_chf_cat'] = np.where(df['delivery_fee_chf'] == 0, 'No Fee', 'Fee')
+df['delivery_fee_chf_cat'] = np.where(df['delivery_fee_chf'] == 0, 0, 1) # 0 = No Fee, 1 = Fee
 
 # Verify transformation
 print("Sample transformed data:")
-print(df[['price_chf', 'delivery_fee_chf', 'delivery_fee_chf_cat']].head())
+print(df[['delivery_fee_chf', 'delivery_fee_chf_cat']].head())
 print("*"*60+"\n")
 
-# save log transformed df
+# save transformed df
 df.to_csv("data/pizza_transformed.csv", index = False, sep=";")
 print("Log transformed data frame is saved as a csv file.\n")
 print("*"*60+"\n")
