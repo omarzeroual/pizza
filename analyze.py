@@ -5,12 +5,15 @@ Author:
 Date: 2025-04-05
 Version: 0.1
 """
-
+import itertools
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scikit_posthocs as sp
+from scipy.stats import kruskal
+from statsmodels.stats.multitest import multipletests
 from cleanertransformer import generate_summary_statistics as summary_stats
 
 # load DataFrame
@@ -28,99 +31,57 @@ print(max_price.round(2))
 min_price = df.groupby("city")["price_chf"].min().sort_values(ascending=True)
 print(min_price.round(2))
 
+#####
+# compare pizza prices between cities
 # log transform price_chf (due to right skewed distribution)
 df['log_price_chf'] = np.log(df['price_chf'])
-# comparison of prices in different cities
-city_avg_log_price = df.groupby('city')['log_price_chf'].mean()
+# check variance
+variance = df.groupby('city')['log_price_chf'].var()
+print(f"variance: {variance}")
 # group data by city and extract prices
 grouped_log_prices = [group['log_price_chf'].values for _, group in df.groupby(['city'])]
-# one-way ANOVA comparing log-transformed prices
-anova_result = stats.f_oneway(*grouped_log_prices)
-print("ANOVA p-value: ", f"{anova_result.pvalue:.6f}")
+# run Kruskal-Wallis test
+kruskal_result = kruskal(*grouped_log_prices)
+print(f"Kruskal_Wallis Test\n p-value: {kruskal_result.pvalue:.6f}")
 
-# post hoc bonferroni
-from statsmodels.stats.multicomp import pairwise_tukeyhsd
-tukey = pairwise_tukeyhsd(df['log_price_chf'], df['city'])
-print(tukey) # sig. differences for Basel-Bern, Basel-Biel, Bern-Genf, Biel-Genf,
+# run post-hoc Dunn-Bonferroni test to find which cities differ from each other
+dunn_bonf_result = sp.posthoc_dunn(df, val_col='log_price_chf', group_col='city', p_adjust='bonferroni')
+alpha = 0.05
+sig_results = dunn_bonf_result[dunn_bonf_result < alpha].stack()
+sig_results_cleaned = sig_results.reset_index()
+print(f"Post Hoc Dunn-Bonferroni, significant results (p-value < 0.05): \n {sig_results_cleaned}")
+city_avg_log_price = df.groupby('city')['log_price_chf'].mean().sort_values(ascending=False)
+print(city_avg_log_price)
 
-"""
-# boxplot of prices in different cities
-# Set figure size
-plt.figure(figsize=(12, 6))
-# Create boxplot
-sns.boxplot(x="city", y="price_chf", data=df)
-# labels
-plt.xlabel("City")
-plt.ylabel("Pizza Margherita Price (log transformed)")
-plt.title("Price Distribution of Pizza Margherita Across Swiss Cities")
+# violin plot of prices in different cities
+# set figure size
+plt.figure(figsize=(14, 8))
+# create boxplot with different colors
+city_colours = sns.color_palette("viridis", len(df['city'].unique()))
+# dictionary to map cities to colors
+city_to_colours = {city: city_colours[i] for i, city in enumerate(df['city'].unique())}
+# colour mapping
+color_mapping = df['city'].map(city_to_colours)
+# create violin plot
+ax = sns.violinplot(x="city", y="log_price_chf", data=df,
+                    hue='city', palette=city_to_colours,
+                    split=False, inner="quart", linewidth=1.5, legend=False)
+# overlay individual data points
+sns.stripplot(x="city", y="log_price_chf", data=df, color="black", alpha=0.7,
+              jitter=True, dodge=True)
+# labels and title
+plt.xlabel("City", fontsize=14)
+plt.ylabel("Pizza Margherita Price (log transformed)", fontsize=14)
+plt.title("Price Distribution of Pizza Margherita across Swiss Cities", fontsize=16, weight='bold')
+# rotate x-axis labels for better readability
+plt.xticks(rotation=45, ha='right')
+# add gridlines
+plt.grid(True, axis='y', linestyle='--', alpha=0.7)
 # Show plot
+plt.tight_layout()
 plt.show()
 
-
-# cluster analysis of prices in different cities
-# Group by city and get average pizza price
-df_cluster = df.groupby("city")["price_chf"].mean().reset_index()
-df_cluster = df_cluster[["city", "price_chf"]]
-# Normalize the pizza prices
-df_cluster["price_scaled"] = (df_cluster["price_chf"] - df_cluster["price_chf"].mean()) / df_cluster["price_chf"].std()
-import random
-
-# K-Means initialization (randomly select initial centroids)
-k = 3  # You can choose the number of clusters you want
-centroids = random.sample(list(df_cluster["price_scaled"]), k)
-
-
-# Function to assign clusters
-def assign_clusters(df, centroids):
-    clusters = []
-    for price in df["price_scaled"]:
-        distances = [abs(price - centroid) for centroid in centroids]
-        cluster = distances.index(min(distances))  # Assign to the nearest centroid
-        clusters.append(cluster)
-    return clusters
-
-
-# Function to update centroids
-def update_centroids(df, clusters, k):
-    new_centroids = []
-    for i in range(k):
-        cluster_prices = df[clusters == i]["price_scaled"]
-        new_centroids.append(cluster_prices.mean())
-    return new_centroids
-
-
-# Main K-Means algorithm loop
-max_iters = 100
-for i in range(max_iters):
-    # Assign clusters based on current centroids
-    df_cluster["Cluster"] = assign_clusters(df_cluster, centroids)
-
-    # Update centroids
-    new_centroids = update_centroids(df_cluster, df_cluster["Cluster"], k)
-
-    # If centroids do not change, break the loop
-    if new_centroids == centroids:
-        break
-
-    centroids = new_centroids
-
-# Check final clusters
-print(df_cluster)
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Plot the clustered cities
-plt.figure(figsize=(10, 6))
-sns.scatterplot(x=df_cluster["city"], y=df_cluster["price_chf"], hue=df_cluster["Cluster"], palette="coolwarm", s=100)
-
-plt.xticks(rotation=45)
-plt.xlabel("City")
-plt.ylabel("Average Pizza Price (CHF)")
-plt.title("Cluster Analysis of Pizza Prices in Swiss Cities")
-plt.legend(title="Cluster")
-plt.show()
-"""
+# Test what factors influence a restaurants rating
 
 
 
