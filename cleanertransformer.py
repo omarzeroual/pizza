@@ -340,11 +340,6 @@ def main():
     # Rename new columns for clarity
     merged_df = merged_df.rename(columns={"E": "city_E", "N": "city_N"})
 
-    # save enriched df to csv
-    merged_df.to_csv("data/pizza_enriched.csv", index=False, sep=";")
-    print("Enriched data frame is saved as a csv file.\n")
-    print("*" * 60 + "\n")
-
     # Create DataFrame including Regions, Cities and Wages
     # Load the wage data
     wage_df = pd.read_csv("data/median_wages_2022.csv", delimiter=";", header=0)
@@ -376,17 +371,8 @@ def main():
     # drop redundant 'Region' and 'Year' columns
     wages_cities_df = wages_cities_df.drop(columns=['Region', 'Year'])
 
-    # save wages_city DataFrame to csv
-    wages_cities_df.to_csv("data/wage_cities.csv", index=False, sep=";")
-    print("Wage_Cities data frame is saved as a csv file.\n")
-    print("*" * 60 + "\n")
-
-    # Merge Wages_Cities Data with Enriched Data
-    # Load enriched data
-    enriched_df = pd.read_csv("data/pizza_enriched.csv", delimiter=";", header=0)
-
     # merge wages_cities_df with pizza_enriched
-    final_df = pd.merge(enriched_df, wages_cities_df, on='city', how='left')
+    final_df = pd.merge(merged_df, wages_cities_df, on='city', how='left')
 
     # save final df to csv
     final_df.to_csv("data/pizza_final.csv", index=False, sep=";")
