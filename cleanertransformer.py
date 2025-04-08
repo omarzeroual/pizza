@@ -55,287 +55,334 @@ def extract_del_time(del_time_str):
             return float(del_time_str), float(del_time_str)
     return 0, 0
 
-########################################################################################################################
-# Load data
-########################################################################################################################
-df = pd.read_csv("data/pizza.csv", delimiter = ";", header = 0)
-print("*"*60+"\n")
-print("Dataframe sucessfully loaded.\n")
-print("*"*60+"\n")
+def generate_summary_statistics(df, variables, digits = 2):
+    """
+    Generates Summary Statistics incl. median, with specified formatting.
 
-# Get shape of data frame
-nrows = df.shape[0]
-ncols = df.shape[1]
+    Parameters:
+    - df: pandas DataFrame
+    - variables: list or single column name to be included in the summary statistics (default: all columns included)
+    - digits: number of decimal places to round to (default 2)
 
-print(f"There are {nrows} rows and {ncols} columns in the dataframe.\n")
-print("*"*60+"\n")
+    Returns:
+    - Formatted Data Frame with Summary Statistics
+    """
 
-print("Structure of the data frame before cleaning and transforming:\n")
-print(df.info())
-print("*"*60+"\n")
+    # if a single column name is passed a string, convert it to a list
+    if isinstance(variables, str):
+        variables = [variables]
 
-########################################################################################################################
-# Check for gaps / missing data
-########################################################################################################################
+    # check that only valid columns are selected
+    variables = [col for col in variables if col in df.columns]
 
-# Drop rows where the "restaurant", "location", "product" or "price" column is null or empty
-df = df.dropna(subset=["restaurant", "location", "product", "price"])
+    # filter the DataFrame so only the selected columns are included
+    df = df[variables]
 
-# Check rows where the "rating", "cuisine", "delivery time", "delivery fee" or "minimum order value" column is null or empty, fill
-columns_to_fill = ["rating (number of ratings)", "cuisine", "delivery time", "delivery fee", "minimum order value"]
-df.loc[:, columns_to_fill] = df.loc[:, columns_to_fill].fillna(np.nan)
+    stats = df.describe().T
+    stats["median"] = df.median(numeric_only=True) # adds median
 
-########################################################################################################################
-# Check if columns show appropriate datatypes, change if needed
-########################################################################################################################
+    # define column order
+    cols = ["count", "mean", "median", "std", "min", "25%", "50%", "75%", "max"]
 
-# Split the location into new columns for city and postcode
-df[["plz", "city"]] = df["location"].str.split(" ", n = 1, expand=True)
-# Convert plz to integer
-df['plz'] = df['plz'].astype(int)
-
-# Split the values in the 'rating (number of ratings)' column with function and create new columns
-df[['rating', 'num_ratings']] = df['rating (number of ratings)'].apply(lambda x: pd.Series(extract_rating_info(x)))
-df["num_ratings"] = df["num_ratings"].astype(int)
-
-# Extract the float from the price column and create a new column
-df["price_chf"] = df["price"].apply(lambda x: pd.Series(extract_price(x)))
-
-# Extract the float from the delivery fee column and create new column
-df["delivery_fee_chf"] = df["delivery fee"].apply(lambda x: pd.Series(extract_delfee(x)))
-
-# Extract the float from the minimum order value column and create new column
-df["min_ord_val_chf"] = df["minimum order value"].apply(lambda x: pd.Series(extract_price(x)))
-
-# Split the values in the "delivery time" column with function and create new columns
-df[["min_del_time", "max_del_time"]] = df["delivery time"].apply(lambda x: pd.Series(extract_del_time(x)))
-
-# Drop unnecessary columns
-df.drop(columns=["location", "rating (number of ratings)" ,"price", "delivery time", "delivery fee", "minimum order value"], inplace=True)
-
-print("Structure of the data frame after cleaning and transforming:\n")
-print(df.info())
-print("*"*60+"\n")
-
-# save cleaned df to csv
-df.to_csv("data/pizza_cleaned.csv", index = False, sep=";")
-print("Cleaned data frame is saved as a csv file.\n")
-print("*"*60+"\n")
-
-########################################################################################################################
-# Check if values lie in the expected range
-########################################################################################################################
-
-# Summary Statistics
-pd.set_option('display.max_rows', 10) # show all rows
-pd.set_option('display.max_columns', 10) # show all columns
-
-summary_statistics = df.describe().T
-# add median to summary statistics
-summary_statistics["median"] = df.median(numeric_only=True)
-# reorder columns
-column_order = ["count", "mean", "median", "std", "min", "25%", "50%", "75%", "max"]
-summary_statistics = summary_statistics[column_order]
-# exclude first variable "plz" and round digits up to 2 decimal places
-summary_statistics = summary_statistics.iloc[1: ].round(2)
-
-print(f"Summary Statistics: \n {summary_statistics} \n")
-print("*"*60+"\n")
+    summary = stats[cols].round(digits)
+    return summary
 
 ########################################################################################################################
 # Identify outliers, treat them reasonably
 ########################################################################################################################
-# list of numeric variables for outlier analysis
-variables = ['rating', 'num_ratings', 'price_chf', 'delivery_fee_chf', 'min_ord_val_chf',
-             'min_del_time', 'max_del_time']
 
-# Visualize distribution with histograms
-# Set up figure with subplots
-plt.figure(figsize=(16, 12))
-# Loop through the variables to create individual histograms
-for i, var in enumerate(variables, 1):
-    plt.subplot(3, 3, i)  # arrange subplots in a 3x3 grid
-    sns.histplot(df[var], kde=True, bins=20)  # kde=True adds density curve
-    plt.title(f'Histogram of {var}')
-    plt.xlabel(var)
-    plt.ylabel('Frequency')
-# Adjust layout to prevent overlap
-plt.tight_layout()
-# Show the plot
-plt.show()
+def check_outliers(df, variables, lower_quantile=0.025, upper_quantile=0.975):
+    """
+     Function to check for outliers in the specified variables.
 
-# Visualize outliers with boxplots
-# Set up the figure with subplots
-plt.figure(figsize=(8, 12))
-# Loop through the variables to create individual boxplots
-for i, variable in enumerate(variables, 1):
-    plt.subplot(4, 2, i)  # arrange subplots in a 7x1 grid
-    sns.boxplot(y=df[variable])  # specify 'y' for vertical box plot
-    plt.title(f'Boxplot of {variable}')
-    plt.xlabel(variable) # label x-axis
-# Adjust layout to prevent overlap
-plt.tight_layout()
-# Increase vertical space between plots
-plt.subplots_adjust(hspace=0.5)
-# Show plot
-plt.show()
+    Parameters:
+    - df: pandas DataFrame
+    - variables: list of variables (columns to check for outliers)
 
-limits = df[variables].quantile([0.025, 0.975])
-# dictionnary to store outliers count for each variable
-outlier_count = {}
-# list to store end result
-outlier_info = []
-# loop through the variables to count outliers and store info
-for col in variables:
-    lower_bound = limits.loc[0.025, col]
-    upper_bound = limits.loc[0.975, col]
-    # count number of outliers outside the 2.5% to 97.5% range
-    outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
-    outlier_count[col] = outliers.shape[0]  # store outlier count
-    # add to result list
-    outlier_info.append({
-        'Variable': col,
-        'Lower Bound (2.5%)': lower_bound,
-        'Upper Bound (97.5%)': upper_bound,
-        'Outlier Count': outlier_count[col]
-    })
-# convert the list outlier_info into a DataFrame
-outlier_info_df = pd.DataFrame(outlier_info)
-# display the data frame with the limits and outlier counts
-print("Outlier Info:")
-print(outlier_info_df.to_string(index=False))
-print("*"*60+"\n")
+    Returns:
+    - DataFrame with outlier information (counts and bounds)
+    """
+    limits = df[variables].quantile([lower_quantile, upper_quantile])
+    outlier_info = [] # list to store end result
 
-# dot plot
-# variables to plot
-variables = ['price_chf', 'delivery_fee_chf', 'min_ord_val_chf', 'min_del_time', 'max_del_time']
+    # loop through the variables to count outliers and store info
+    for col in variables:
+        lower_bound, upper_bound = limits.loc[lower_quantile, col], limits.loc[upper_quantile, col]
+        outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
+        outlier_info.append({
+            'Variable': col,
+            f'Lower Bound ({lower_quantile*100}%)': lower_bound,
+            f'Upper Bound ({upper_quantile * 100}%)': upper_bound,
+            'Outlier Count': outliers.shape[0]
+        })
+    return pd.DataFrame(outlier_info)
 
-# figure size
-plt.figure(figsize=(10, len(variables) * 2))
+def plot_data(df, variables, plot_type = "histogram", bins = 20, rows = 3, cols = 3, figsize = (16,12)):
+    """
+    Plots different types of plots (histograms, boxplots, dot plots) for a list of variables.
 
-# create dot plots for each variable
-for i, var in enumerate(variables, 1):
-    plt.subplot(len(variables), 1, i)  # Create a subplot for each variable
-    sns.stripplot(x=df[var], jitter=True, alpha=0.6)  # Dot plot (strip plot)
-    plt.title(f"Dot Plot of {var}")
-    plt.xlabel(var)
+    Parameters:
+    - df: pandas DataFrame
+    - variables: list of variables (column names) to plot
+    - plot_type: type of plot (histogram, boxplot, dotplot)
+    - bins: number of bins for histogram (default 20)
+    - rows: number of rows for the subplot grid (default 3)
+    - cols: number of columns for the subplot grid (default 3)
+    - figsize: size of figure (default (16,12))
+     """
+    # Set up figure with subplots
+    plt.figure(figsize=figsize)
+    # Loop through the variables to create individual histograms
+    for i, var in enumerate(variables, 1):
+        plt.subplot(rows, cols, i) # arranges subplots
 
-# Adjust layout for better readability
-plt.tight_layout()
-plt.show()
+        if plot_type == "histogram":
+            sns.histplot(df[var], kde=True, bins=bins)  # kde=True adds density curve
+            plt.title(f'Histogram of {var}')
+            plt.xlabel(var)
+            plt.ylabel('Frequency')
 
-### Remove outliers in price
-prc_lwr_bnd = limits.loc[0.025, "price_chf"]
-prc_upr_bnd = limits.loc[0.975, "price_chf"]
+        if plot_type == "boxplot":
+            sns.boxplot(y=df[var])  # specify 'y' for vertical box plot
+            plt.title(f'Boxplot of {var}')
+            plt.xlabel(var)  # label x-axis
 
-# Remove outliers from price column
-df = df[(df["price_chf"] >= prc_lwr_bnd) & (df["price_chf"] <= prc_upr_bnd)]
+        if plot_type == "dotplot":
+            sns.stripplot(x=df[var], jitter=True, alpha=0.5)
+            plt.title(f'Dot Plot of {var}')
+            plt.xlabel(var)
 
-sns.histplot(df["price_chf"], kde=True, bins=20)  # kde=True adds a density curve
-plt.title(f'Histogram of price_chf')
-plt.xlabel("price_chf")
-plt.ylabel('Frequency')
-plt.show()
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    # Show the plot
+    plt.show()
 
-summary_statistics_after = df.describe().T
-# add median to summary statistics
-summary_statistics_after["median"] = df.median(numeric_only=True)
-# reorder columns
-column_order = ["count", "mean", "median", "std", "min", "25%", "50%", "75%", "max"]
-summary_statistics_after = summary_statistics_after[column_order]
-# exclude first variable "plz" and round digits up to 2 decimal places
-summary_statistics = summary_statistics_after.iloc[1: ].round(2)
+def remove_outliers(df, variables, lower_quantile=0.025, upper_quantile=0.975):
+    """
+    Removes outliers for the specified variable.
 
-print(f"Summary Statistics after Outlier Elimination: \n {summary_statistics} \n")
-print("*"*60+"\n")
-########################################################################################################################
-# Format your dataset suitable for your task (combine, merge, resample, …)
-########################################################################################################################
+    Parameters:
+   -  df: pandas DataFrame
+    - variables: column names to remove outliers from (list)
+    - lower_quantile: lower bound quantile (default 2.5%)
+    -  upper_quantile: upper bound quantile (default 97.5%)
 
-# transform del delivery_fee_chf int categorical variable with two levels
-df['delivery_fee_chf_cat'] = np.where(df['delivery_fee_chf'] == 0, 0, 1) # 0 = No Fee, 1 = Fee
+    Returns:
+    - df_cleaned: DataFrame with outliers removed
+    - outliers: DataFrame with all rows that were removed as outliers
+    - removed_outliers_count: count of rows removed as outliers
+    """
+    if isinstance(variables, str):
+        variables = [variables]
 
-# Verify transformation
-print("Sample transformed data:")
-print(df[['delivery_fee_chf', 'delivery_fee_chf_cat']].head())
-print("*"*60+"\n")
+    df_cleaned = df.copy()
 
-# save transformed df
-df.to_csv("data/pizza_transformed.csv", index = False, sep=";")
-print("Log transformed data frame is saved as a csv file.\n")
-print("*"*60+"\n")
+    for var in variables:
+        limits = df[var].quantile([lower_quantile, upper_quantile])
+        lower_bound, upper_bound = limits.loc[lower_quantile], limits.loc[upper_quantile]
 
-########################################################################################################################
-# Enrich your dataset with at least one column of helpful additional information
-########################################################################################################################
+        outliers = df[(df[var] < lower_bound) | (df[var] > upper_bound)]
+        df_cleaned = df[(df[var] >= lower_bound) & (df[var] <= upper_bound)]
 
-# Add geographical information
-# Read data set with geographical information for each city/town in Switzerland
-df_coordinates = pd.read_csv("data/AMTOVZ_CSV_WGS84.csv", delimiter = ";", header = 0)
+    removed_outliers_count = len(outliers)
 
-# Filter for necessary columns
-df_coord_slct = df_coordinates[["PLZ", "E", "N"]]
+    return df_cleaned, outliers, removed_outliers_count
 
-# Merge data frames on plz column
-merged_df = pd.merge(df, df_coord_slct, left_on="plz", right_on="PLZ", how='inner')
 
-# Drop the redundant 'PLZ' column from merge
-merged_df = merged_df.drop(columns=['PLZ'])
+def main():
+    ########################################################################################################################
+    # Load data
+    ########################################################################################################################
+    # Load data
+    df = pd.read_csv("data/pizza.csv", delimiter=";", header=0)
+    print(f"{'*' * 60}\nDataFrame successfully loaded.\n{'*' * 60}")
 
-# Rename new columns for clarity
-merged_df = merged_df.rename(columns={"E": "city_E", "N": "city_N"})
+    # Show shape
+    print(f"\nDataFrame shape: {df.shape[0]} rows × {df.shape[1]} columns\n{'*' * 60}")
 
-# save enriched df to csv
-merged_df.to_csv("data/pizza_enriched.csv", index = False, sep=";")
-print("Enriched data frame is saved as a csv file.\n")
-print("*"*60+"\n")
+    # Preview structure
+    print("\nStructure of the DataFrame before cleaning and transforming:\n")
+    df.info()
 
-# Merge with Wages
-# Load the wage data
-wage_df = pd.read_csv("data/median_wages_2022.csv", delimiter = ";", header = 0)
+    print(f"{'*' * 60}")
 
-# Mapping for the region to city
-region_to_city_mapping = {
-    "Région lémanique": ["Genf", "Lausanne"],
-    "Espace Mittelland": ["Bern", "Biel"],
-    "Nordwestschweiz": ["Basel"],
-    "Zürich": ["Zürich", "Winterthur"],
-    "Ostschweiz": ["St. Gallen"],
-    "Zentralschweiz": ["Luzern"],
-    "Ticino": ["Lugano"]
-}
+    ########################################################################################################################
+    # Check for gaps / missing data
+    ########################################################################################################################
+    # Drop rows where the "restaurant", "location", "product" or "price" column is null or empty
+    df = df.dropna(subset=["restaurant", "location", "product", "price"])
 
-# convert mapping to data frame
-region_cities_df = pd.DataFrame(
-    [(region, city) for region, cities in region_to_city_mapping.items() for city in cities],
-    columns=["region", "city"]
-)
+    # Check rows where the "rating", "cuisine", "delivery time", "delivery fee" or "minimum order value" column is null or empty, fill
+    columns_to_fill = ["rating (number of ratings)", "cuisine", "delivery time", "delivery fee", "minimum order value"]
+    df.loc[:, columns_to_fill] = df.loc[:, columns_to_fill].fillna(np.nan)
 
-# standardize region column
-region_cities_df['region'] = region_cities_df['region'].str.strip().str.lower()
-wage_df['Region'] = wage_df['Region'].str.strip().str.lower()
+    ########################################################################################################################
+    # Check if columns show appropriate datatypes, change if needed
+    ########################################################################################################################
+    # Split the location into new columns for city and postcode
+    df[["plz", "city"]] = df["location"].str.split(" ", n=1, expand=True)
 
-# merge data frames onto 'region' column
-wages_cities_df = pd.merge(region_cities_df, wage_df, left_on='region', right_on='Region', how='left')
+    # Convert plz to integer
+    df['plz'] = df['plz'].astype(int)
 
-# drop redundant 'Region' and 'Year' columns
-wages_cities_df = wages_cities_df.drop(columns=['Region', 'Year'])
+    # Split the values in the 'rating (number of ratings)' column with function and create new columns
+    df[['rating', 'num_ratings']] = df['rating (number of ratings)'].apply(lambda x: pd.Series(extract_rating_info(x)))
+    df["num_ratings"] = df["num_ratings"].astype(int)
 
-# save wages_city data frame to csv
-wages_cities_df.to_csv("data/wage_cities.csv", index = False, sep=";")
-print("Wage_Cities data frame is saved as a csv file.\n")
-print("*"*60+"\n")
+    # Extract the float from the price column and create a new column
+    df["price_chf"] = df["price"].apply(lambda x: pd.Series(extract_price(x)))
 
-# Load enriched data
-enriched_df = pd.read_csv("data/pizza_enriched.csv", delimiter = ";", header = 0)
+    # Extract the float from the delivery fee column and create new column
+    df["delivery_fee_chf"] = df["delivery fee"].apply(lambda x: pd.Series(extract_delfee(x)))
 
-# merge wages_cities_df with pizza_enriched
-final_df = pd.merge(enriched_df, wages_cities_df, on = 'city', how = 'left')
+    # Extract the float from the minimum order value column and create new column
+    df["min_ord_val_chf"] = df["minimum order value"].apply(lambda x: pd.Series(extract_price(x)))
 
-# save final df to csv
-final_df.to_csv("data/pizza_final.csv", index = False, sep=";")
-print("Final data frame is saved as a csv file.\n")
-print("*"*60+"\n")
+    # Split the values in the "delivery time" column with function and create new columns
+    df[["min_del_time", "max_del_time"]] = df["delivery time"].apply(lambda x: pd.Series(extract_del_time(x)))
+
+    # Drop unnecessary columns
+    df.drop(columns=["location", "rating (number of ratings)", "price", "delivery time", "delivery fee",
+                     "minimum order value"], inplace=True)
+
+    print("Structure of the data frame after cleaning and transforming:\n")
+    print(df.info())
+    print("*" * 60 + "\n")
+
+    # save cleaned df to csv
+    df.to_csv("data/pizza_cleaned.csv", index=False, sep=";")
+    print("Cleaned data frame is saved as a csv file.\n")
+    print("*" * 60 + "\n")
+
+    ########################################################################################################################
+    # Check if values lie in the expected range
+    ########################################################################################################################
+    # Set display options
+    pd.set_option('display.max_rows', 10)  # show all rows
+    pd.set_option('display.max_columns', 10)  # show all columns
+
+    # load DataFrame
+    df = pd.read_csv("data/pizza_cleaned.csv", delimiter=";", header=0)
+
+    # Variables for outlier analysis
+    variables = ['rating', 'num_ratings', 'price_chf', 'delivery_fee_chf', 'min_ord_val_chf',
+                 'min_del_time', 'max_del_time']
+
+    # Summary Statistics
+    summary_statistics = generate_summary_statistics(df, variables)
+    print(f"\nSummary Statistics: \n{summary_statistics}\n{"*" * 60}\n")
+
+    # transform del delivery_fee_chf int categorical variable with two levels
+    df['delivery_fee_chf_cat'] = np.where(df['delivery_fee_chf'] == 0, 0, 1)  # 0 = No Fee, 1 = Fee
+
+    # Verify transformation
+    print("Sample transformed data:")
+    print(df[['delivery_fee_chf', 'delivery_fee_chf_cat']].head())
+    print("*" * 60 + "\n")
+
+    # Define Variables without min_del_time,  max_del_time and delivery_fee_chf
+    variables = ['rating', 'num_ratings', 'price_chf', 'min_ord_val_chf']
+
+    # Plot histograms to get information about the distribution
+    plot_data(df, variables, plot_type="histogram", bins=20, rows=2, cols=2)
+
+    # Plot boxplots
+    plot_data(df, variables, plot_type="boxplot", rows=2, cols=2)
+
+    # Plot dot plots to check for potential clusters
+    plot_data(df, variables, plot_type="dotplot", rows=2, cols=2)
+
+    # Check for outliers
+    outliers = check_outliers(df, variables, lower_quantile=0.05, upper_quantile=0.95)
+    print("Outlier Information:")
+    print(outliers.to_string(index=False))
+
+    # Remove outliers in price
+    df_outliers_removed, removed_outliers, removed_outliers_count = remove_outliers(df, "price_chf", lower_quantile=0.05,                                                                     upper_quantile=0.95)
+    print(f"\nRemoved Outliers in 'price_chf':\n{removed_outliers.to_string(index=False)}")
+    print(f"Total number of removed outliers: {removed_outliers_count}")
+
+    # Plot histogram for 'price' to check distribution after outlier removal
+    plot_data(df_outliers_removed, ['price_chf'], rows=1, cols=1, plot_type="histogram", bins=20)
+
+    # Plot boxplot for 'price'
+    plot_data(df_outliers_removed, ['price_chf'], rows=1, cols=1, plot_type="boxplot")
+
+    # Summary Statistics
+    summary_statistics_after = generate_summary_statistics(df_outliers_removed, "price_chf")
+    print(f"\nSummary Statistics after Outlier Removal: \n{summary_statistics_after}\n{"*" * 60}\n")
+    print("*" * 60 + "\n")
+
+    # save transformed DataFrame
+    df_outliers_removed.to_csv("data/pizza_transformed.csv", index=False, sep=";")
+    print("Transformed data frame is saved as a csv file.\n")
+    print("*" * 60 + "\n")
+
+    ########################################################################################################################
+    # Format your dataset suitable for your task (combine, merge, resample, …) and enrich with additional information
+    ########################################################################################################################
+    # Load data
+    df = pd.read_csv("data/pizza_transformed.csv", delimiter=";", header=0)
+
+    # Add geographical information
+    # Read data set with geographical information for each city/town in Switzerland
+    df_coordinates = pd.read_csv("data/AMTOVZ_CSV_WGS84.csv", delimiter=";", header=0)
+
+    # Filter for necessary columns
+    df_coord_slct = df_coordinates[["PLZ", "E", "N"]]
+
+    # Merge data frames on plz column
+    merged_df = pd.merge(df, df_coord_slct, left_on="plz", right_on="PLZ", how='inner')
+
+    # Drop the redundant 'PLZ' column from merge
+    merged_df = merged_df.drop(columns=['PLZ'])
+
+    # Rename new columns for clarity
+    merged_df = merged_df.rename(columns={"E": "city_E", "N": "city_N"})
+
+    # Create DataFrame including Regions, Cities and Wages
+    # Load the wage data
+    wage_df = pd.read_csv("data/median_wages_2022.csv", delimiter=";", header=0)
+
+    # Mapping of the regions to the cities
+    region_to_city_mapping = {
+        "Région lémanique": ["Genf", "Lausanne"],
+        "Espace Mittelland": ["Bern", "Biel"],
+        "Nordwestschweiz": ["Basel"],
+        "Zürich": ["Zürich", "Winterthur"],
+        "Ostschweiz": ["St. Gallen"],
+        "Zentralschweiz": ["Luzern"],
+        "Ticino": ["Lugano"]
+    }
+
+    # convert mapping int DataFrame
+    region_cities_df = pd.DataFrame(
+        [(region, city) for region, cities in region_to_city_mapping.items() for city in cities],
+        columns=["region", "city"]
+    )
+
+    # standardize region column
+    region_cities_df['region'] = region_cities_df['region'].str.strip().str.lower()
+    wage_df['Region'] = wage_df['Region'].str.strip().str.lower()
+
+    # merge DataFrames onto 'region' column
+    wages_cities_df = pd.merge(region_cities_df, wage_df, left_on='region', right_on='Region', how='left')
+
+    # drop redundant 'Region' and 'Year' columns
+    wages_cities_df = wages_cities_df.drop(columns=['Region', 'Year'])
+
+    # merge wages_cities_df with pizza_enriched
+    final_df = pd.merge(merged_df, wages_cities_df, on='city', how='left')
+
+    # save final df to csv
+    final_df.to_csv("data/pizza_final.csv", index=False, sep=";")
+    print("Final data frame is saved as a csv file.\n")
+    print("*" * 60 + "\n")
+
+if __name__ == "__main__":
+    main()
+
+
 
 
 
