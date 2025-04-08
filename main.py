@@ -8,12 +8,14 @@ Version: 0.1
 import scraper
 import get_api
 import cleanertransformer
+import analyze
 import visualizer
 
 def main():
     get_api.main()
     scraper.main()
     cleanertransformer.main()
+    analyze.main()
     visualizer.main()
 
 if __name__ == "__main__":
