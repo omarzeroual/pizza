@@ -13,29 +13,29 @@ import os
 
 class Restaurant: # class naming convention PascalCase
     """Represents a restaurant and its attributes"""
-    def __init__(self, restaurantName, restaurantLocation, restaurantRating, restaurantCuisine, restProdPrice, restaurantDelTime, restaurantDelCost, restaurantMinOrd):
-        self.name = restaurantName
-        self.location = restaurantLocation
-        self.rating = restaurantRating
-        self.cuisine = restaurantCuisine
-        self.productPrice = restProdPrice
-        self.delTime = restaurantDelTime
-        self.delCost = restaurantDelCost
-        self.minOrd = restaurantMinOrd
+    def __init__(self, restaurant_name, restaurant_location, restaurant_rating, restaurant_cuisine, rest_prod_price, restaurant_del_time, restaurant_del_cost, restaurant_min_ord):
+        self.name = restaurant_name
+        self.location = restaurant_location
+        self.rating = restaurant_rating
+        self.cuisine = restaurant_cuisine
+        self.product_price = rest_prod_price
+        self.del_time = restaurant_del_time
+        self.del_cost = restaurant_del_cost
+        self.min_ord = restaurant_min_ord
 
     def __str__(self):
-        return f"{self.name}, {self.location}, {self.rating}, {self.cuisine}, {self.productPrice}, {self.delTime}, {self.delCost}, {self.minOrd}"
+        return f"{self.name}, {self.location}, {self.rating}, {self.cuisine}, {self.product_price}, {self.del_time}, {self.del_cost}, {self.min_ord}"
 
-    def csvCreator(self):
+    def csv_creator(self):
         """Creates for each product of restaurant a line of comma separated values (CSV)"""
         lines = []
-        for product, price in self.productPrice.items():
+        for product, price in self.product_price.items():
             # Ensure to correctly format the product and price line
-            line = f"{self.name};{self.location};{self.rating};{self.cuisine};{product};{price};{self.delTime};{self.delCost};{self.minOrd}"
+            line = f"{self.name};{self.location};{self.rating};{self.cuisine};{product};{price};{self.del_time};{self.del_cost};{self.min_ord}"
             lines.append(line)
         return lines
 
-def getPage(url):
+def get_page(url):
     """Gets the page content for a given URL and returns it as "soup" """
     # instantiate a Chrome browser
     driver = Driver(uc = True)
@@ -72,7 +72,7 @@ def getPage(url):
 def extract_restaurants(soup, location):
     """Creates Restaurant objects from restaurant list."""
     # Initialize list of restaurant objects
-    restaurantObjects = []
+    restaurant_objects = []
     restaurant_items = soup.find_all("div", class_ = "restaurant-card-shell_card__IMerh")
 
     # print only for debugging
@@ -84,39 +84,38 @@ def extract_restaurants(soup, location):
 
     # Loop through all restaurants in soup list
     for restaurantItem in restaurant_items:
-        productPriceDict = {}
+        product_price_dict = {}
         # Get different data from restaurantItem
-        restaurantName = textValidator(restaurantItem.find('div', class_='restaurant-card_restaurant-name__lEVVi'))
-        productName = restaurantItem.find_all('div', class_='restaurant-nested-dishes_product-name__I4Cam')
-        productPrice = restaurantItem.find_all("div", class_='restaurant-nested-dishes_product-price__R1kWT')
+        restaurant_name = text_validator(restaurantItem.find('div', class_='restaurant-card_restaurant-name__lEVVi'))
+        product_name = restaurantItem.find_all('div', class_='restaurant-nested-dishes_product-name__I4Cam')
+        product_price = restaurantItem.find_all("div", class_='restaurant-nested-dishes_product-price__R1kWT')
 
-        for i in range(len(productName)):
-            productPriceDict.update({textValidator(productName[i]) : textValidator(productPrice[i])})
+        for i in range(len(product_name)):
+            product_price_dict.update({text_validator(product_name[i]) : text_validator(product_price[i])})
 
-        restaurantRating = textValidator(restaurantItem.find("div", class_="restaurant-ratings_rating__yW5tR"))
-        restaurantCuisine = textValidator(restaurantItem.find("div", class_ = "restaurant-cuisine_cuisine__SQ_Dc"))
-        restaurantDelTime = textValidator(restaurantItem.find("div", attrs={"data-qa": "restaurant-eta"}))
-        restaurantDelCost = textValidator(restaurantItem.find("div", attrs={"data-qa": "restaurant-delivery-fee"}))
-        restaurantMinOrd = textValidator(restaurantItem.find("div", attrs={"data-qa":"restaurant-mov"}))
-
+        restaurant_rating = text_validator(restaurantItem.find("div", class_="restaurant-ratings_rating__yW5tR"))
+        restaurant_cuisine = text_validator(restaurantItem.find("div", class_ ="restaurant-cuisine_cuisine__SQ_Dc"))
+        restaurant_del_time = text_validator(restaurantItem.find("div", attrs={"data-qa": "restaurant-eta"}))
+        restaurant_del_cost = text_validator(restaurantItem.find("div", attrs={"data-qa": "restaurant-delivery-fee"}))
+        restaurant_min_ord = text_validator(restaurantItem.find("div", attrs={"data-qa": "restaurant-mov"}))
 
         # Print only for debugging
-        # print(f"Scraped: {restaurantName}, Rating: {restaurantRating}, Cuisine: {restaurantCuisine}")
+        # print(f"Scraped: {restaurant_name}, Rating: {restaurant_rating}, Cuisine: {restaurantCuisine}")
 
         # Create new restaurant object with data
-        restaurantObjects.append(Restaurant(restaurantName, location, restaurantRating, restaurantCuisine, productPriceDict, restaurantDelTime, restaurantDelCost, restaurantMinOrd))
+        restaurant_objects.append(Restaurant(restaurant_name, location, restaurant_rating, restaurant_cuisine, product_price_dict, restaurant_del_time, restaurant_del_cost, restaurant_min_ord))
 
         # Clear dictionary with products and prices for new restaurant
-        productPriceDict = {}
+        product_price_dict = {}
 
-    return restaurantObjects
+    return restaurant_objects
 
-def textValidator(htmlBlock):
+def text_validator(html_block):
     """Method to check if soup object/html code is not empty. Returns "NA" if it is else the text."""
-    return htmlBlock.text if htmlBlock else "NA"
+    return html_block.text if html_block else "NA"
 
 
-def save_to_csv(restaurants, filname):
+def save_to_csv(restaurants):
     # Check if CSV already exists
     if os.path.exists("data/pizza.csv"):
         os.remove("data/pizza.csv")
@@ -125,7 +124,7 @@ def save_to_csv(restaurants, filname):
     with open("data/pizza.csv", "w") as csvFile:
         csvFile.write("restaurant;location;rating (number of ratings);cuisine;product;price;delivery time;delivery fee;minimum order value\n")
         for restaurantObject in restaurants:
-            lines = restaurantObject.csvCreator()
+            lines = restaurantObject.csv_creator()
             for line in lines:
                 csvFile.write(f"{line}\n")
 
@@ -144,10 +143,10 @@ def main():
         print(f"Scraping: {url}")  # only as check
 
         # get soup of url
-        soup = getPage(url)
+        soup = get_page(url)
         # get location of current soup
         location_elem = soup.find("span", class_="ygmw2")
-        location = textValidator(location_elem)
+        location = text_validator(location_elem)
 
         all_restaurants.extend(extract_restaurants(soup, location))
 

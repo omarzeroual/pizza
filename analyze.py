@@ -1,3 +1,4 @@
+<<<<<<< visualizations_vl
 """
 Module Name: analyze.py
 Description: This modules is for analysing the pizza price data
@@ -63,11 +64,6 @@ plt.grid(True, axis='y', linestyle='--', alpha=0.7)
 # Show plot
 plt.tight_layout() # avoids overlap
 plt.show()
-
-####
-# Test what factors influence a restaurants rating
-
-
 
 
 
