@@ -99,7 +99,7 @@ df['log_min_ord_val_chf'] = np.log(df['min_ord_val_chf'])
 # transform num ratings in to categorical variable
 df['num_ratings_cat'] = pd.qcut(df['num_ratings'], q=3, labels=['Low', 'Medium', 'High'])
 # Convert categorical variables into dummies
-df_dummies = pd.get_dummies(df[['num_ratings_cat', 'cuisine_group', 'delivery_fee_chf_cat', 'city', 'region']], drop_first=True)
+df_dummies = pd.get_dummies(df[['num_ratings_cat', 'cuisine_group', 'delivery_fee_chf_cat', 'city']], drop_first=True)
 df_dummies = df_dummies.astype(int)
 # Combine dummies and numeric variables
 var_num = ['log_price_chf', 'log_min_ord_val_chf', 'Median Monthly Wage (CHF)']
@@ -113,8 +113,41 @@ ols_model = sm.OLS(y, X_const).fit()
 # print output
 print(ols_model.summary())
 
+# Visualizations
+# Facet grid for scatterplot num_rating vs. rating -> lmplot
+plt.figure(figsize=(14, 8))
+sns.lmplot(x='num_ratings', y='rating', data=df, hue='num_ratings_cat',
+           markers=['o', 's', 'D'], palette='viridis', aspect=1.5, height=6)
+plt.title('Linear Regression of Ratings vs. Number of Ratings', fontsize=16, weight='bold')
+plt.xlabel('Number of Ratings', fontsize=14)
+plt.ylabel('Restaurant Rating', fontsize=14)
+plt.tight_layout()
+plt.show()
 
+"""
+# Facet grid for scatterplot num_rating vs. rating -> FacetGrid
+g = sns.FacetGrid(df, col="num_ratings_cat", height=5, aspect=1.2)
+g.map(sns.regplot, 'num_ratings', 'rating', scatter_kws={'s': 10}, line_kws={"color": "orange"})
+g.set_axis_labels('Number of Ratings', 'Restaurant Rating')
+plt.tight_layout()
+plt.show()
 
+# city vs. rating (boxplot)
+plt.figure(figsize=(14, 8))
+sns.boxplot(x='city', y='rating', data=df, palette='Set2')
+plt.title('Effect of City on Rating', fontsize=16, weight='bold')
+plt.xlabel('City', fontsize=14)
+plt.ylabel('Restaurant Rating', fontsize=14)
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
 
-
-
+# median wage vs. rating (scatterplot)
+sns.scatterplot(x='Median Monthly Wage (CHF)', y='rating', data=df, hue='num_ratings_cat', palette='viridis')
+sns.regplot(x='Median Monthly Wage (CHF)', y='rating', data=df, scatter=False, color='red')
+plt.title('Effect of Median Wage on Rating', fontsize=16, weight='bold')
+plt.xlabel('Median Monthly Wage (CHF)', fontsize=14)
+plt.ylabel('Restaurant Rating', fontsize=14)
+plt.tight_layout()
+plt.show()
+"""
