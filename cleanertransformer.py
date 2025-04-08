@@ -189,6 +189,37 @@ def remove_outliers(df, variables, lower_quantile=0.025, upper_quantile=0.975):
     return df_cleaned, outliers, removed_outliers_count
 
 
+def group_cuisine(cuisine):
+    """
+    Groups cuisine based on key word matching
+
+    Parameters:
+    - cuisine: name or description of cuisine (str)
+
+    Returns:
+    - cuisine group (e.g. Italian) or 'Other' if no match is found
+
+    Note:
+    - predefined keywords list are used to group cuisines
+    - keyword matching is case-sensitive
+    """
+    cuisine_groups = {
+        'Italian': ['Italienisch', 'Italienische Pizza', 'Pasta', 'Pizza'],
+        'MiddleEastern': ['Türkisch', 'Döner', 'Kebab', 'Türkische Pizza', 'Pide', 'Balkanküche',
+                          'Arabisch', 'Falafel', 'Meze', 'Libanesisch'],
+        'Indian': ['Indisch'],
+        'Swiss': ['Schweizer Küche'],
+        'Fastfood': ['Snacks', 'Sandwiches', 'Wraps', 'Amerikanisch', 'Burger', 'Hot Dog'],
+        'Other': ['Lebensmittel', 'Alkohol', 'Andere Getränke', 'Lokale Geheimtipps', 'Mittagsangebote', '-25% Deals',
+                  'Gourmet']
+    }
+
+    for group, cuisines in cuisine_groups.items():
+        if any(cuisine_part in cuisine for cuisine_part in cuisines):
+            return group
+    return 'Other'
+
+
 def main():
     ########################################################################################################################
     # Load data
@@ -313,6 +344,20 @@ def main():
     print(f"\nSummary Statistics after Outlier Removal: \n{summary_statistics_after}\n{"*" * 60}\n")
     print("*" * 60 + "\n")
 
+    # clean/group column cuisine
+    num_rows = df_outliers_removed.shape[0]  # check number of rows before transformation
+    print(num_rows)
+    unique_cuisines = df_outliers_removed['cuisine'].unique()
+    print(unique_cuisines)
+
+    df_outliers_removed = df_outliers_removed.copy()
+    df_outliers_removed['cuisine_group'] = df_outliers_removed['cuisine'].apply(group_cuisine)
+    print(df_outliers_removed['cuisine_group'].unique())
+    print(df_outliers_removed['cuisine_group'].value_counts())
+    # replace column cuisine with value from cuisine_group
+    df_outliers_removed.drop(columns=['cuisine'], inplace=True)
+    df_outliers_removed.rename(columns={'cuisine_group': 'cuisine'}, inplace=True)
+
     # save transformed DataFrame
     df_outliers_removed.to_csv("data/pizza_transformed.csv", index=False, sep=";")
     print("Transformed data frame is saved as a csv file.\n")
@@ -378,6 +423,8 @@ def main():
     final_df.to_csv("data/pizza_final.csv", index=False, sep=";")
     print("Final data frame is saved as a csv file.\n")
     print("*" * 60 + "\n")
+
+    print(df.columns)
 
 if __name__ == "__main__":
     main()
