@@ -9,3 +9,24 @@ As guidelines for the project, we set ourselves the following three research que
 1.	In which big Swiss cities is the price for a pizza Margherita the highest or the lowest respectively?
 2.	What factors (e.g. price of pizza Margherita, cuisine, delivery time) influence a restaurant’s rating?
 3.	How does the price of a pizza Margherita in big Swiss cities relate to the regional median income (“Pizza Margherita Index”)?
+
+## Module
+- main.py
+  - This modules is for running the whole project in one go.
+  - Main contributors: Omar, Valérie
+- scraper.py
+  - This modules scrapes product information from a online delivery service. The data is output as a csv file.
+  - Main contributor: Omar
+- get_api.py
+  - This module gets the wage data from the BFS API
+  - Main contributor: Valérie
+- cleanertransformer.py
+  - This modules cleans the data of a provided csv file and does certain transformations.
+  - Main contributors: Valérie, Omar
+- visualizer.py
+  - This modules is for analysing and creation visualizations based on the pizza price data.
+  - Main contributor: Omar
+- analyze.py
+  - This modules is for analysing the pizza price data
+  - Main contributor: Valérie
+ 
