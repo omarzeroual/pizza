@@ -1,9 +1,9 @@
 """
 Module Name: main.py
 Description: This modules is for running the whole project in one go.
-Author:
+Author: Omar, Valérie
 Date: 2025-04-08
-Version: 0.1
+Version: 1.0
 """
 import scraper
 import get_api

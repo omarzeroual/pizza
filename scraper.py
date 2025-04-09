@@ -1,9 +1,9 @@
 """
 Module Name: scraper.py
 Description: This modules scrapes product information from a online delivery service. The data is output as a csv file.
-Author:
-Date: 2025-03-27
-Version: 0.1
+Author: Omar
+Date: 2025-04-09
+Version: 1.0
 """
 
 from bs4 import BeautifulSoup

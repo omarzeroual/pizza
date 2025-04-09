@@ -1,9 +1,9 @@
 """
 Module Name: cleanertransformer.py
 Description: This modules cleans the data of a provided csv file and does certain transformations.
-Author:
-Date: 2025-04-01
-Version: 0.3
+Author: Valérie, Omar
+Date: 2025-04-09
+Version: 1.0
 """
 import pandas as pd
 import numpy as np

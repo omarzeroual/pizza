@@ -1,9 +1,9 @@
 """
 Module Name: analyze.py
 Description: This modules is for analysing the pizza price data
-Author:
-Date: 2025-04-05
-Version: 0.1
+Author: Valérie
+Date: 2025-04-09
+Version: 1.0
 """
 import pandas as pd
 import numpy as np

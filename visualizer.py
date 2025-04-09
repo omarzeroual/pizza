@@ -1,9 +1,9 @@
 """
 Module Name: visualizer.py
 Description: This modules is for analysing and creation visualizations based on the pizza price data.
-Author:
+Author: Omar
 Date: 2025-04-05
-Version: 0.1
+Version: 1.0
 """
 import pandas as pd
 import numpy as np

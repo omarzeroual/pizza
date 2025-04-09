@@ -1,9 +1,9 @@
 """
 Module Name: get_api.py
 Description: This module gets the wage data from the BFS API
-Author:
+Author: Valérie
 Date: 2025-04-01
-Version: 0.1
+Version: 1.0
 """
 
 # https://data.bfs.admin.ch
