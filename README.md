@@ -25,8 +25,10 @@ As guidelines for the project, we set ourselves the following three research que
   - Main contributors: Valérie, Omar
 - visualizer.py
   - This modules is for analysing and creation visualizations based on the pizza price data.
+  - Visualizations: Pizza-Price to Wage Ratio Map
   - Main contributor: Omar
 - analyze.py
-  - This modules is for analysing the pizza price data
+  - This modules is for analysing the pizza price data and visualizing the results.
+  - Visualizations: Violin Plot (Pizza Prices vs. Cities), Facet Grid Scatterplot (Number of Ratings vs. Rating Score)
   - Main contributor: Valérie
  
